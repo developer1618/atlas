@@ -75,8 +75,8 @@ class BookingController extends Controller
                 'status' => $bookingData['status'],
                 'amount' => $bookingData['amount'],
                 'sub_total' => $bookingData['sub_total'],
-                'coupon_amount' => $bookingData['coupon_amount'],
-                'coupon_code' => $bookingData['coupon_code'],
+//                'coupon_amount' => $bookingData['coupon_amount'],
+//                'coupon_code' => $bookingData['coupon_code'],
                 'customer_id' => $bookingData['customer_id'],
                 'currency_id' => $bookingData['currency_id'],
                 'requests' => $bookingData['requests'],
@@ -84,17 +84,17 @@ class BookingController extends Controller
                 'number_of_guests' => $bookingData['number_of_guests'],
                 'payment_id' => $bookingData['payment_id'],
                 'transaction_id' => $bookingData['transaction_id'],
-                'tax_amount' => $bookingData['tax_amount'],
+//                'tax_amount' => $bookingData['tax_amount'],
             ]);
             $roomData = Room::findOrFail($bookingData['room_id']); // Получаем данные о комнате
             $room = BookingRoom::create([
                 'booking_id' => $booking->id,
                 'room_id' => $bookingData['room_id'],
                 'room_name' => $roomData->name, // Предположим, что название комнаты хранится в столбце 'name'
-                'room_image' => $bookingData['images'], // Предположим, что URL изображения хранится в столбце 'image_url'
+//                'room_image' => $bookingData['images'], // Предположим, что URL изображения хранится в столбце 'image_url'
                 'price' => $roomData->price, // Предположим, что цена хранится в столбце 'price'
                 'currency_id' => $bookingData['currency_id'],
-                'number_of_rooms' => $bookingData['number_of_rooms'],
+                'number_of_rooms' => $roomData->number_of_rooms,
                 'start_date' => $bookingData['start_date'],
                 'end_date' => $bookingData['end_date'],
             ]);
@@ -104,22 +104,41 @@ class BookingController extends Controller
                 'phone' => $bookingData['phone'],
                 'email' => $bookingData['email'],
                 'country' => $bookingData['country'],
-                'state' => $bookingData['state'], // Если есть
-                'city' => $bookingData['city'], // Если есть
-                'address' => $bookingData['address'], // Если есть
-                'zip' => $bookingData['zip'], // Если есть
+//                'state' => $bookingData['state'], // Если есть
+//                'city' => $bookingData['city'], // Если есть
+//                'address' => $bookingData['address'], // Если есть
+//                'zip' => $bookingData['zip'], // Если есть
                 'booking_id' => $booking->id,
             ]);
-
+            $serviceIds = $request->input('services', []);
+          //  $selectedServices = Service::whereIn('id', $serviceIds)->sum('price'); // Находим общую стоимость выбранных услуг
+            $selectedServices = Service::whereIn('id', $serviceIds)->get();
             // Проверяем, было ли успешно создано бронирование
             if ($booking) {
                 $user = Auth::user();
-
+                $currentBonuses = $user->bonuses;
                 // Вычисляем и добавляем бонусы пользователю
                 $bonusPoints = number_format(round($roomData->price * 0.05, 2), 2);
                 $user->update([
                     'bonuses' => $user->bonuses + $bonusPoints,
                 ]);
+                // Проверяем, достаточно ли у пользователя бонусов для оплаты услуг
+                if (!$selectedServices->isEmpty()) {
+                    $serviceTotal = $selectedServices->sum('price');
+                    if ($currentBonuses < $serviceTotal) {
+                        // Если бонусов недостаточно, откатываем изменения и возвращаем ошибку
+                        $user->update([
+                            'bonuses' => $currentBonuses, // Откатываем изменения баланса бонусов
+                        ]);
+
+                        throw new \Exception('Insufficient bonuses to pay for selected services');
+                    }
+
+                    // Вычитаем стоимость выбранных услуг из бонусов пользователя
+                    $user->update([
+                        'bonuses' => max(0, $user->bonuses - $serviceTotal),
+                    ]);
+                }
 
                 return response()->json([
                     'message' => 'Booking created successfully',
@@ -127,6 +146,7 @@ class BookingController extends Controller
                         'booking' => $booking,
                         'room' => $room,
                         'address' => $address,
+                        'services' => $selectedServices, // Добавляем информацию о выбранных услугах
                     ],
                     'bonuses_added' => $bonusPoints,
                 ], 200);
@@ -170,5 +190,10 @@ class BookingController extends Controller
             return response()->json(['error' => 'Failed to delete booking'], 500);
         }
     }
+    public function getServices()
+    {
+        $services = Service::query()->wherePublished()->get();
 
+        return response()->json($services);
+    }
 }
