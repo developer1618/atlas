@@ -26,7 +26,6 @@ class Room extends BaseModel
         'number_of_beds',
         'size',
         'max_adults',
-        'max_children',
         'room_category_id',
         'tax_id',
         'order',
@@ -145,11 +144,6 @@ class Room extends BaseModel
         if (! empty($filters['adults']) && $this->max_adults < $filters['adults']) {
             return false;
         }
-
-        if (! empty($filters['children']) && $this->max_children < $filters['children']) {
-            return false;
-        }
-
         return true;
     }
 

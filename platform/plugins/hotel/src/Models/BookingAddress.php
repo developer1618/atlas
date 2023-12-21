@@ -18,10 +18,6 @@ class BookingAddress extends BaseModel
         'phone',
         'email',
         'country',
-        'state',
-        'city',
-        'address',
-        'zip',
         'booking_id',
     ];
 
@@ -32,10 +28,6 @@ class BookingAddress extends BaseModel
         'phone' => SafeContent::class,
         'email' => SafeContent::class,
         'country' => SafeContent::class,
-        'state' => SafeContent::class,
-        'city' => SafeContent::class,
-        'address' => SafeContent::class,
-        'zip' => SafeContent::class,
     ];
 
     public function booking(): BelongsTo
@@ -47,11 +39,7 @@ class BookingAddress extends BaseModel
     {
         return Attribute::make(
             get: fn (mixed $value, array $attributes) =>
-                ($attributes['address'] ? $attributes['address'] . ', ' : null)
-                . ($attributes['city'] ? $attributes['city'] . ', ' : null)
-                . ($attributes['state'] ? $attributes['state'] . ', ' : null)
-                . ($attributes['country'] ? $attributes['country'] . ', ' : null)
-                . ($attributes['zip'] ? $attributes['zip'] . ', ' : null)
+                ($attributes['country'] ? $attributes['country'] . ', ' : null)
         );
     }
 }

@@ -24,23 +24,23 @@ class RoomController extends Controller
 
     public function index(Request $request)
     {
-        $filters = [
-            // Ваши фильтры, если есть
-        ];
+        $maxAdults = $request->input('max_adults');
+        $perPage = $request->input('per_page', 10);
+        $currentPage = $request->input('page', 1);
 
-        $params = [
-            'paginate' => [
-                'per_page' => $request->input('per_page', 10),
-                'current_paged' => $request->input('page', 1),
-            ],
-            'with' => [
-                'amenities',
-                'amenities.metadata',
-                // Другие отношения, если есть
-            ],
-        ];
+        $rooms = Room::with([
+            'amenities',
+            'amenities.metadata',
+            'currency',
+            'category',
+            'amenities.metadata'
+        ]);
 
-        $rooms = $this->roomRepository->getRooms($filters, $params);
+        if ($maxAdults) {
+            $rooms->where('max_adults', '>=', $maxAdults);
+        }
+
+        $rooms = $rooms->paginate($perPage, ['*'], 'page', $currentPage);
 
         return response()->json(['rooms' => $rooms]);
     }
@@ -56,4 +56,5 @@ class RoomController extends Controller
 
         return response()->json(['room' => $room]);
     }
+
 }
