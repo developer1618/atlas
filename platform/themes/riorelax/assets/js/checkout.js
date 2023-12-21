@@ -16,6 +16,7 @@ $(document).ready(function () {
                 room_id: $('input[name=room_id]').val(),
                 start_date: $('input[name=start_date]').val(),
                 end_date: $('input[name=end_date]').val(),
+                bonus: true,
                 services,
             },
             success: ({ error, data }) => {
@@ -58,6 +59,7 @@ $(document).ready(function () {
                 room_id: $('input[name=room_id]').val(),
                 start_date: $('input[name=start_date]').val(),
                 end_date: $('input[name=end_date]').val(),
+                bonus: true,
                 services,
             },
             success: ({ error, message, data }) => {

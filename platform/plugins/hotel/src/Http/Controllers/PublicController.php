@@ -586,17 +586,18 @@ class PublicController extends Controller
 
         $room->total_price = $room->getRoomTotalPrice($startDate, $endDate);
 
-        [$amount, $discountAmount] = $this->calculateBookingAmount($room, $request->input('services', []), $nights);
+        [$amount, $discountAmount, $service_amount] = $this->calculateBookingAmount($room, $request->input('services', []), $nights);
 
         $taxAmount = $room->tax->percentage * ($amount - $discountAmount) / 100;
 
         $totalAmount = ($amount - $discountAmount) + $taxAmount;
 
         return $response->setData([
-            'total_amount' => format_price($totalAmount),
+            'total_amount' => format_price($totalAmount).' + Service: '.$service_amount.'$',
             'amount_raw' => $totalAmount,
             'sub_total' => format_price($amount),
             'tax_amount' => format_price($taxAmount),
+            'service' => $request->input('services'),
             'discount_amount' => format_price($discountAmount),
         ]);
     }
@@ -661,7 +662,7 @@ class PublicController extends Controller
     protected function calculateBookingAmount(Room $room, array $servicesIds = [], $nights = 1): array
     {
         $amount = $room->total_price;
-
+        $service_amount = 0;
         if ($servicesIds) {
             $services = Service::query()
                 ->whereIn('id', $servicesIds)
@@ -669,9 +670,9 @@ class PublicController extends Controller
 
             foreach ($services as $service) {
                 if ($service->price_type == ServicePriceTypeEnum::PER_DAY) {
-                    $amount += $service->price * $nights;
+                    $service_amount += $service->price * $nights;
                 } else {
-                    $amount += $service->price;
+                    $service_amount += $service->price;
                 }
             }
         }
@@ -695,6 +696,7 @@ class PublicController extends Controller
         return [
             $amount,
             $discountAmount,
+            $service_amount
         ];
     }
 }
