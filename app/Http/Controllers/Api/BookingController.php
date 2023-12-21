@@ -41,6 +41,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 class BookingController extends Controller
 {
@@ -48,7 +49,7 @@ class BookingController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user();
-            $bookings = $user->bookings()->get();
+            $bookings = $user->bookings()->with('room')->get();
             return response()->json($bookings);
         }
 
@@ -64,252 +65,80 @@ class BookingController extends Controller
         return response()->json($room);
     }
 
-//    public function store(Request $request)
-//    {
-//        try {
-//            $bookingData = $request->all(); // Получаем данные из запроса
-//
-//            $booking = Booking::create($bookingData); // Создаем бронирование
-//
-//            // Получаем пользователя, совершившего бронирование
-//            $user = Auth::user();
-//
-//            // Вычисляем сумму бонусов на основе 5% от стоимости бронирования
-//            $bonusPoints = floor($bookingData['amount'] * 0.05);
-//
-//            // Зачисляем бонусы пользователю
-//            $user->update([
-//                'bonuses' => $user->bonuses + $bonusPoints,
-//            ]);
-//
-//            return response()->json([
-//                'message' => 'Booking created successfully',
-//                'data' => $booking,
-//                'bonuses_added' => $bonusPoints,
-//            ], 200);
-//        } catch (\Exception $e) {
-//            return response()->json(['message' => 'Failed to create booking'], 500);
-//        }
-//    }
-
-    public function postBookingAPI(InitBookingRequest $request)
+    public function store(Request $request)
     {
-        $room = Room::query()
-            ->with(['currency', 'category'])
-            ->findOrFail($request->input('room_id'));
-
-        $token = md5(Str::random(40));
-
-        // Сохраняем данные бронирования по ключу, соответствующему токену
-        session()->put($token, $request->except(['_token']));
-        session()->put('checkout_token', $token);
-
-        return ['token' => $token];
-    }
-
-    public function getBookingAPI(string $token)
-    {
-        $customer = new Customer();
-
-        if (Auth::guard('customer')->check()) {
-            $customer = Auth::guard('customer')->user();
-        }
-
-        // Получаем данные бронирования по ключу, соответствующему токену
-        $sessionData = session()->get($token);
-
-        if (empty($sessionData)) {
-            return response()->json(['error' => 'Error Data'], 404);
-        }
-
-        $startDate = Carbon::createFromFormat('d-m-Y', Arr::get($sessionData, 'start_date'));
-        $endDate = Carbon::createFromFormat('d-m-Y', Arr::get($sessionData, 'end_date'));
-        $adults = Arr::get($sessionData, 'adults');
-
-        $room = Room::query()
-            ->with([
-                'currency',
-                'category',
-                'activeBookingRooms',
-                'activeRoomDates',
-            ])
-            ->findOrFail(Arr::get($sessionData, 'room_id'));
-        if (!$room->isAvailableAt(['start_date' => $startDate, 'end_date' => $endDate])) {
-            return response()->json([
-                'error' => 'Room not available for booking',
-                'message' => 'This room is not available for booking from ' . $startDate->toDateString() . ' to ' . $endDate->toDateString(),
-            ], 400);
-        }
-
-        $room->total_price = $room->getRoomTotalPrice($startDate, $endDate);
-
-        $taxAmount = $room->tax->percentage * $room->total_price / 100;
-
-        $services = Service::query()
-            ->wherePublished()
-            ->get();
-
-        return [
-            'room' => $room,
-            'startDate' => $startDate,
-            'endDate' => $endDate,
-            'adults' => $adults,
-            'total' => $room->total_price + $taxAmount,
-            'taxAmount' => $taxAmount,
-            'services' => $services,
-            'token' => $token,
-            'customer' => $customer,
-        ];
-    }
-
-    public function postCheckoutAPI(Request $request)
-    {
-        $room = Room::query()->findOrFail($request->input('room_id'));
-
-        if ($request->input('register_customer') == 1) {
-            $request->validate([
-                'email' => 'required|max:60|min:6|email|unique:ht_customers,email',
+        try {
+            $bookingData = $request->all();
+            $bookingData['transaction_id'] = Str::upper(Str::random(32));
+            // Создаем бронирование и заполняем его данными из запроса
+            $booking = Booking::create([
+                'status' => $bookingData['status'],
+                'amount' => $bookingData['amount'],
+                'sub_total' => $bookingData['sub_total'],
+                'coupon_amount' => $bookingData['coupon_amount'],
+                'coupon_code' => $bookingData['coupon_code'],
+                'customer_id' => $bookingData['customer_id'],
+                'currency_id' => $bookingData['currency_id'],
+                'requests' => $bookingData['requests'],
+                'arrival_time' => $bookingData['arrival_time'],
+                'number_of_guests' => $bookingData['number_of_guests'],
+                'payment_id' => $bookingData['payment_id'],
+                'transaction_id' => $bookingData['transaction_id'],
+                'tax_amount' => $bookingData['tax_amount'],
+            ]);
+            $roomData = Room::findOrFail($bookingData['room_id']); // Получаем данные о комнате
+            $room = BookingRoom::create([
+                'booking_id' => $booking->id,
+                'room_id' => $bookingData['room_id'],
+                'room_name' => $roomData->name, // Предположим, что название комнаты хранится в столбце 'name'
+                'room_image' => $bookingData['images'], // Предположим, что URL изображения хранится в столбце 'image_url'
+                'price' => $roomData->price, // Предположим, что цена хранится в столбце 'price'
+                'currency_id' => $bookingData['currency_id'],
+                'number_of_rooms' => $bookingData['number_of_rooms'],
+                'start_date' => $bookingData['start_date'],
+                'end_date' => $bookingData['end_date'],
+            ]);
+           $address = BookingAddress::create([
+                'first_name' => $bookingData['first_name'],
+                'last_name' => $bookingData['last_name'],
+                'phone' => $bookingData['phone'],
+                'email' => $bookingData['email'],
+                'country' => $bookingData['country'],
+                'state' => $bookingData['state'], // Если есть
+                'city' => $bookingData['city'], // Если есть
+                'address' => $bookingData['address'], // Если есть
+                'zip' => $bookingData['zip'], // Если есть
+                'booking_id' => $booking->id,
             ]);
 
-            $customer = Customer::query()->create([
-                'first_name' => BaseHelper::clean($request->input('first_name')),
-                'last_name' => BaseHelper::clean($request->input('last_name')),
-                'email' => BaseHelper::clean($request->input('email')),
-                'phone' => BaseHelper::clean($request->input('phone')),
-                'password' => Hash::make($request->input('password')),
-            ]);
+            // Проверяем, было ли успешно создано бронирование
+            if ($booking) {
+                $user = Auth::user();
 
-            Auth::guard('customer')->loginUsingId($customer->getKey());
+                // Вычисляем и добавляем бонусы пользователю
+                $bonusPoints = number_format(round($roomData->price * 0.05, 2), 2);
+                $user->update([
+                    'bonuses' => $user->bonuses + $bonusPoints,
+                ]);
+
+                return response()->json([
+                    'message' => 'Booking created successfully',
+                    'data' => [
+                        'booking' => $booking,
+                        'room' => $room,
+                        'address' => $address,
+                    ],
+                    'bonuses_added' => $bonusPoints,
+                ], 200);
+            } else {
+                throw new \Exception('Failed to create booking');
             }
-        $booking = new Booking();
-        $booking->fill($request->input());
-
-        $startDate = Carbon::createFromFormat('d-m-Y', $request->input('start_date'));
-        $endDate = Carbon::createFromFormat('d-m-Y', $request->input('end_date'));
-
-        $room->total_price = $room->getRoomTotalPrice($startDate, $endDate);
-
-        $serviceIds = $request->input('services', []);
-
-        [$amount, $discountAmount] = $this->calculateBookingAmount($room, $serviceIds);
-
-        $taxAmount = $room->tax->percentage * ($amount - $discountAmount) / 100;
-
-        $booking->coupon_amount = $discountAmount;
-        $booking->coupon_code = Session::get('coupon_code', '');
-        $booking->amount = ($amount - $discountAmount) + $taxAmount;
-        $booking->sub_total = $amount;
-        $booking->tax_amount = $taxAmount;
-        $booking->transaction_id = Str::upper(Str::random(32));
-
-        if (Auth::guard('customer')->check()) {
-            $booking->customer_id = Auth::guard('customer')->user()->getKey();
-            $user = Auth::guard('customer')->user();
-            $bonusPoints = floor($amount * 0.05);
-
-            // Зачисляем бонусы пользователю
-            $user->update([
-                'bonuses' => $user->bonuses + $bonusPoints,
-            ]);
-            // Передаем количество зачисленных бонусов в ответе
-            $bonusesAdded = $bonusPoints;
-        } else {
-            $bonusesAdded = 0; // Не залогиненному пользователю не начисляются бонусы
+        } catch (\Exception $e) {
+            Log::error('Ошибка: ' . $e->getMessage());
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        $booking->save();
-
-        if ($serviceIds) {
-            $booking->services()->attach($serviceIds);
-        }
-
-        session()->put('booking_transaction_id', $booking->transaction_id);
-
-        BookingRoom::query()->create([
-            'room_id' => $room->getKey(),
-            'room_name' => $room->name,
-            'room_image' => Arr::first($room->images),
-            'booking_id' => $booking->getKey(),
-            'price' => $room->total_price,
-            'currency_id' => $room->currency_id,
-            'number_of_rooms' => 1,
-            'start_date' => $startDate->format('Y-m-d'),
-            'end_date' => $endDate->format('Y-m-d'),
-        ]);
-
-        $bookingAddress = new BookingAddress();
-        $bookingAddress->fill($request->input());
-        $bookingAddress->booking_id = $booking->getKey();
-        $bookingAddress->save();
-
-        $request->merge([
-            'order_id' => $booking->getKey(),
-        ]);
-
-        $data = [
-            'error' => false,
-            'message' => false,
-            'amount' => $booking->amount,
-            'currency' => strtoupper(get_application_currency()->title),
-            'type' => $request->input('payment_method'),
-            'charge_id' => null,
-        ];
-        return [
-            'booking_transaction_id' => $booking->transaction_id,
-            // Include other necessary data here
-        ];
-    }
-    public function checkoutSuccessAPI(string $transactionId)
-    {
-        $booking = Booking::query()
-            ->where('transaction_id', $transactionId)
-            ->firstOrFail();
-
-        return ['booking' => $booking];
     }
 
-//    public function createBooking(Request $request)
-//    {
-//        $validator = Validator::make($request->all(), [
-//            'room_id' => 'required|exists:ht_rooms,id',
-//            'start_date' => 'required|date_format:d-m-Y',
-//            'end_date' => 'required|date_format:d-m-Y|after:start_date',
-//            'adults' => 'required|integer|min:1',
-//        ]);
-//
-//        if ($validator->fails()) {
-//            return response()->json(['error' => $validator->errors()], 400);
-//        }
-//
-//        $room = Room::findOrFail($request->input('room_id'));
-//
-//        // Создаем уникальный токен
-//        $token = md5(Str::random(40));
-//
-//        // Сохраняем данные запроса в сессии по этому токену (в данном случае, заменяем на сохранение в базе или во временном хранилище для API)
-//        $bookingData = [
-//            'token' => $token,
-//            'room_id' => $room->id
-////            'start_date' => $startDate, // Добавление start_date
-////            'end_date' => $endDate, // Добавление end_date
-//        ];
-//
-//        // Сохраняем данные бронирования в базу (или временное хранилище для API)
-//        $createdBooking = Booking::create($bookingData);
-//
-//        // Создаем и сохраняем адрес бронирования (если это необходимо)
-////        $addressData = [
-////            'booking_id' => $createdBooking->id,
-////            // Добавьте данные адреса здесь
-////        ];
-////        BookingAddress::create($addressData);
-//
-//        // Отправляем ответ об успешном создании бронирования и возвращаем данные бронирования
-//        return response()->json([
-//            'message' => 'Booking created successfully',
-//            'booking' => $createdBooking,
-//        ], 201);
-//    }
 
     public function update(BookingRequest $request, $id)
     {

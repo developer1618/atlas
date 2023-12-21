@@ -1,7 +1,7 @@
 <section id="home" class="slider-area fix p-relative">
     <div class="slider-active" style="background: #101010;">
-        @foreach($sliders as $slider)
-            <div class="single-slider slider-bg d-flex align-items-center" style="background-image:url({{ RvMedia::getImageUrl($slider->image) }}); background-size: cover;">
+        @foreach ($sliders as $slider)
+            {{-- <div class="single-slider slider-bg d-flex align-items-center" style="background-image:url({{ RvMedia::getImageUrl($slider->image) }}); background-size: cover;">
                 <div class="container">
                     <div class="row justify-content-center align-items-center">
                         <div class="col-lg-7 col-md-7">
@@ -48,7 +48,16 @@
                         </div>
                     </div>
                 </div>
+            </div> --}}
+            <div class="bg-video">
+                <video width="100%" autoplay muted loop>
+                    <source src="http://atlashoteldushanbe.com/storage/tajikistan.MP4" type="video/mp4">
+                </video>
             </div>
         @endforeach
     </div>
 </section>
+
+<style>
+
+</style>

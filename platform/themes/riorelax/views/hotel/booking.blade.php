@@ -42,7 +42,7 @@ use Botble\Hotel\Models\Customer;
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <h4 style="color:#C09B5A; padding-right: 5px">
-                                    <span class="bonus-text">{{ ($customer->bonuses ?? 0) }}</span>
+                                    <span class="bonus-text" id="bonus-count">{{ ($customer->bonuses ?? 0) }}</span>
                                 </h4>
                                 <img src="http://atlashoteldushanbe.com/storage/bonus.png" alt="Bonus" style="padding-bottom: 10px">
                             </div>
@@ -61,13 +61,13 @@ use Botble\Hotel\Models\Customer;
                                     @foreach($chunks[0] as $service)
                                         <div class="form-group mb-20 custom-checkbox">
                                             <label for="service_{{ $service->id }}">
-                                                <input type="checkbox" class="service-item" id="service_{{ $service->id }}" name="services[]" value="{{ $service->id }}" @if (in_array($service->id, (array)old('services', []))) checked @endif>
+                                                <input type="checkbox" class="service-item service-price" id="service_{{ $service->id }}" name="services[]" data-price="{{ ($service->price) }}" value="{{ $service->id }}" @if (in_array($service->id, (array)old('services', []))) checked @endif>
                                                 {{ $service->name }} <em>({{ format_price($service->price) }})</em>
                                                 <span></span>
                                             </label>
                                             <div class="d-flex">
                                                 <div class="px-0">
-                                                    <label for="card" id="bonusLabel" class="px-2" style="color:#C09B5A">{{ ($service->price) }} <span class="displayValue"> $</span></label>
+                                                    <label for="card" id="bonusLabel" class="px-2" style="color:#C09B5A"><span>{{ ($service->price) }}</span> <span class="displayValue"> $</span></label>
                                                 </div>
                                             </div>
                                         </div>
@@ -79,13 +79,13 @@ use Botble\Hotel\Models\Customer;
                                     @foreach($chunks[1] as $service)
                                         <div class="form-group mb-20 custom-checkbox">
                                             <label for="service_{{ $service->id }}">
-                                                <input type="checkbox" class="service-item" id="service_{{ $service->id }}" name="services[{{ $service->id }}]" value="{{ $service->id }}">
+                                                <input type="checkbox" class="service-item service-price" id="service_{{ $service->id }}" name="services[{{ $service->id }}]"  data-price="{{ ($service->price) }}" value="{{ $service->id }}">
                                                 {{ $service->name }} <em>({{ format_price($service->price) }})</em>
                                                 <span></span>
                                             </label>
                                             <div class="d-flex">
                                                 <div class="px-0">
-                                                    <label for="card" id="bonusLabel" class="px-2" style="color:#C09B5A">{{ ($service->price) }} <span class="displayValue"> $</span></label>
+                                                    <label for="card" id="bonusLabel" class="px-2" style="color:#C09B5A"><span>{{ ($service->price) }}</span> <span class="displayValue"> $</span></label>
                                                 </div>
                                             </div>
                                         </div>
@@ -95,8 +95,8 @@ use Botble\Hotel\Models\Customer;
                         </div>
                         <div class="d-flex">
                             <div style="padding-right: 32px">
-                                <h3>Оплата бонусами</h3>
-                                <p>У вас <span class="bonus-text">{{ ($customer->bonuses ?? 0) }}</span> бонусов</p>
+                                <h3>Payment with bonuses</h3>
+                                <p>You have <span class="bonus-text">{{ ($customer->bonuses ?? 0) }}</span> bonuses</p>
                             </div>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault" onchange="toggleBonus()">
@@ -299,7 +299,9 @@ use Botble\Hotel\Models\Customer;
 @endif
 
 <script>
-    document.getElementById("flexSwitchCheckDefault").checked = false;
+    let checkbox = document.getElementById("flexSwitchCheckDefault");
+    checkbox.checked = false;
+    checkbox.disabled = true;
 
     function toggleBonus() {
         let switchCheckbox = document.getElementById("flexSwitchCheckDefault");
@@ -309,11 +311,18 @@ use Botble\Hotel\Models\Customer;
             for (let i = 0; i < displayValues.length; i++) {
                 displayValues[i].innerHTML = " Bonus";
             }
+            let bonus_count = document.getElementById("bonus-count").innerHTML;
+            let service_price = document.getElementsByClassName("service-price");
+            Array.prototype.forEach.call(service_price, function(el) {
+                if (Number(el.getAttribute("data-price")) > Number(bonus_count)) {
+                    console.log(123);
+                    let block_input = el.setAttribute('disabled', 'disabled');
+                }
+            });
         } else {
             for (let i = 0; i < displayValues.length; i++) {
                 displayValues[i].innerHTML = " $";
             }
         }
     }
-
 </script>

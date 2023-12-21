@@ -420,6 +420,7 @@ class PublicController extends Controller
             ]);
 
             Auth::guard('customer')->loginUsingId($customer->getKey());
+
         }
 
         $booking = new Booking();
@@ -429,25 +430,30 @@ class PublicController extends Controller
         $endDate = Carbon::createFromFormat('d-m-Y', $request->input('end_date'));
 
         $room->total_price = $room->getRoomTotalPrice($startDate, $endDate);
-
+        $roomPrice = $room->getRoomTotalPrice($startDate, $endDate);
+        $roomBonus = $roomPrice * 0.05;
         $serviceIds = $request->input('services', []);
 
         [$amount, $discountAmount] = $this->calculateBookingAmount($room, $serviceIds);
 
         $taxAmount = $room->tax->percentage * ($amount - $discountAmount) / 100;
-
         $booking->coupon_amount = $discountAmount;
         $booking->coupon_code = Session::get('coupon_code', '');
         $booking->amount = ($amount - $discountAmount) + $taxAmount;
         $booking->sub_total = $amount;
         $booking->tax_amount = $taxAmount;
         $booking->transaction_id = Str::upper(Str::random(32));
-
         if (Auth::guard('customer')->check()) {
             $booking->customer_id = Auth::guard('customer')->user()->getKey();
-        }
+            $user = Auth::guard('customer')->user();
 
-        $booking->save();
+            // Добавление бонусов за комнату к общему балансу бонусов пользователя
+            $user->update([
+                'bonuses' => $user->bonuses + $roomBonus,
+            ]);
+
+        }
+            $booking->save();
 
         if ($serviceIds) {
             $booking->services()->attach($serviceIds);
@@ -538,6 +544,7 @@ class PublicController extends Controller
             session()->forget($request->input('token'));
             session()->forget('checkout_token');
         }
+
 
         $newBooking = Booking::query()
             ->with('payment')

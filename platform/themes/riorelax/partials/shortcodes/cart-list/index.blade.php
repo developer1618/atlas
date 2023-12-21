@@ -172,12 +172,18 @@
     }
 
     function modalOrderWindow() {
+    let storageItem = JSON.parse(localStorage.getItem('saved'));
+
+    if (storageItem && storageItem.length > 0) {
         $('.backgroundModal').css('display', 'block');
         $('#orderModal').css('display', 'block');
         document.querySelector(".backgroundModal").style.display = "flex";
         document.querySelector(".backgroundModal").classList.add("active-animation");
         document.querySelector(".backgroundModal").classList.remove("disactive-animation");
+    } else {
+        alert("Корзина пуста!");
     }
+}
 
     function closeFoodBlock() {
         $('#orderModal').css('display', 'none');

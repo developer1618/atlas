@@ -59,8 +59,15 @@ class BookingRoom extends BaseModel
 
     protected function bookingPeriod(): Attribute
     {
-        return Attribute::make(
-            get: fn (mixed $value, array $attributes) => $attributes['start_date'] . ' -> ' . $attributes['end_date'],
-        );
+        return Attribute::make(function ($value, array $attributes) {
+            $startDate = $attributes['start_date'] ?? null;
+            $endDate = $attributes['end_date'] ?? null;
+
+            if ($startDate && $endDate) {
+                return $startDate . ' -> ' . $endDate;
+            }
+
+            return 'Invalid dates'; // Возвращаемое значение по умолчанию или обработка некорректных данных
+        });
     }
 }

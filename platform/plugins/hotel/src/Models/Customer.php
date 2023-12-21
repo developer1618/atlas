@@ -51,6 +51,7 @@ class Customer extends BaseModel implements
         'city',
         'state',
         'country',
+        'bonuses'
     ];
 
     protected $hidden = [

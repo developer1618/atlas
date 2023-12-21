@@ -29,7 +29,7 @@
                                 <strong>{{ auth('customer')->user()->name }}</strong>
                             </div>
                             <div class="profile-usertitle-name">
-                                <strong>Bonus: {{ auth('customer')->user()->bonuses }} 0 </strong><img src="http://atlashoteldushanbe.com/storage/bonus.png" alt="Bonus" style="width: 16px; padding-bottom: 3px; margin-left:5px">
+                                <strong>Bonus: {{ auth('customer')->user()->bonuses }} </strong><img src="http://atlashoteldushanbe.com/storage/bonus.png" alt="Bonus" style="width: 16px; padding-bottom: 3px; margin-left:5px">
                             </div>
                         </div>
 
