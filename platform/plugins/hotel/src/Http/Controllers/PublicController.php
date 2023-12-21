@@ -621,7 +621,7 @@ class PublicController extends Controller
             'discount_amount' => format_price($discountAmount),
         ]);
     }
-
+//test
     public function changeCurrency(
         Request $request,
         BaseHttpResponse $response,
