@@ -449,26 +449,27 @@ class PublicController extends Controller
             $user = Auth::guard('customer')->user();
             $selectedServices = Service::whereIn('id', $serviceIds)->get();
             $currentBonuses = $user->bonuses;
+            
             // Добавление бонусов за комнату к общему балансу бонусов пользователя
             $user->update([
                 'bonuses' => $user->bonuses + $roomBonus,
             ]);
+            $isBonusUsed = $request->input('bonus', 0);
             // Проверяем, достаточно ли у пользователя бонусов для оплаты услуг
-            if (!$selectedServices->isEmpty()) {
-                $serviceTotal = $selectedServices->sum('price');
-                if ($currentBonuses < $serviceTotal) {
-                    // Если бонусов недостаточно, откатываем изменения и возвращаем ошибку
+            if ($isBonusUsed == 1) {
+                // Проверяем, достаточно ли у пользователя бонусов для оплаты услуг
+                if (!$selectedServices->isEmpty()) {
+                    $serviceTotal = $selectedServices->sum('price');
+                    if ($currentBonuses < $serviceTotal) {
+                        // Если бонусов недостаточно, возвращаем ошибку
+                        throw new \Exception('Insufficient bonuses to pay for selected services');
+                    }
+
+                    // Вычитаем стоимость выбранных услуг из бонусов пользователя
                     $user->update([
-                        'bonuses' => $currentBonuses, // Откатываем изменения баланса бонусов
+                        'bonuses' => max(0, $user->bonuses - $serviceTotal),
                     ]);
-
-                    throw new \Exception('Insufficient bonuses to pay for selected services');
                 }
-
-                // Вычитаем стоимость выбранных услуг из бонусов пользователя
-                $user->update([
-                    'bonuses' => max(0, $user->bonuses - $serviceTotal),
-                ]);
             }
             $booking->save();
 
