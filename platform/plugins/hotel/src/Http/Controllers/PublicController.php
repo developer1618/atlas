@@ -449,6 +449,8 @@ class PublicController extends Controller
             $user = Auth::guard('customer')->user();
             $selectedServices = Service::whereIn('id', $serviceIds)->get();
             $currentBonuses = $user->bonuses;
+
+
             // Добавление бонусов за комнату к общему балансу бонусов пользователя
             $user->update([
                 'bonuses' => $user->bonuses + $roomBonus,
