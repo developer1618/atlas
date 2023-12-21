@@ -455,7 +455,6 @@ class PublicController extends Controller
                 'bonuses' => $user->bonuses + $roomBonus,
             ]);
             $isBonusUsed = $request->input('bonus', 0);
-            // Проверяем, достаточно ли у пользователя бонусов для оплаты услуг
             if ($isBonusUsed == 1) {
                 // Проверяем, достаточно ли у пользователя бонусов для оплаты услуг
                 if (!$selectedServices->isEmpty()) {
