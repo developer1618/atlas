@@ -49,7 +49,7 @@ class BookingController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user();
-            $bookings = $user->bookings()->with('room')->get();
+            $bookings = $user->bookings()->with('room', 'services')->get();
             return response()->json($bookings);
         }
 
