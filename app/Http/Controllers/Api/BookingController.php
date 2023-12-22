@@ -85,6 +85,7 @@ class BookingController extends Controller
                 'payment_id' => $bookingData['payment_id'],
                 'transaction_id' => $bookingData['transaction_id'],
 //                'tax_amount' => $bookingData['tax_amount'],
+
             ]);
             $roomData = Room::findOrFail($bookingData['room_id']); // Получаем данные о комнате
             $room = BookingRoom::create([
@@ -113,6 +114,9 @@ class BookingController extends Controller
             $serviceIds = $request->input('services', []);
           //  $selectedServices = Service::whereIn('id', $serviceIds)->sum('price'); // Находим общую стоимость выбранных услуг
             $selectedServices = Service::whereIn('id', $serviceIds)->get();
+            if (!$selectedServices->isEmpty()) {
+                $booking->services()->attach($selectedServices);
+            }
             // Проверяем, было ли успешно создано бронирование
             if ($booking) {
                 $user = Auth::user();
