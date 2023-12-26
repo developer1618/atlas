@@ -408,8 +408,19 @@ class PublicController extends Controller
 
         if ($request->input('register_customer') == 1) {
             $request->validate([
-               'email' => 'required|max:60|min:6|email|unique:ht_customers,email',
+                'email' => 'required|max:60|min:6|email|unique:ht_customers,email',
             ]);
+
+            $existingCustomer = Customer::query()
+                ->where('email', $request->input('email'))
+                ->first();
+
+            if ($existingCustomer) {
+                return response()->json([
+                    'error' => true,
+                    'message' => __('Email already registered. Please use a different email address.'),
+                ]);
+            }
 
             $customer = Customer::query()->create([
                 'first_name' => BaseHelper::clean($request->input('first_name')),
@@ -420,9 +431,7 @@ class PublicController extends Controller
             ]);
 
             Auth::guard('customer')->loginUsingId($customer->getKey());
-
         }
-
         $booking = new Booking();
         $booking->fill($request->input());
 
@@ -447,31 +456,24 @@ class PublicController extends Controller
             $booking->customer_id = Auth::guard('customer')->user()->getKey();
 
             $user = Auth::guard('customer')->user();
-            $selectedServices = Service::whereIn('id', $serviceIds)->get();
             $currentBonuses = $user->bonuses;
+            $isBonusUsed = $request->input('bonus', 0);
 
+            if ($isBonusUsed == 1) {
+                // Проверяем, достаточно ли у пользователя бонусов для оплаты выбранных услуг
+                $selectedServiceIds = $request->input('services', []);
+                $serviceTotal = Service::whereIn('id', $selectedServiceIds)->sum('price');
 
-            // Добавление бонусов за комнату к общему балансу бонусов пользователя
+                if ($currentBonuses < $serviceTotal) {
+                    // Если бонусов недостаточно, возвращаем ошибку
+                    throw new \Exception('Insufficient bonuses to pay for selected services');
+                }
+            }
+
+// Добавление бонусов за комнату к общему балансу бонусов пользователя
             $user->update([
                 'bonuses' => $user->bonuses + $roomBonus,
             ]);
-            $isBonusUsed = $request->input('bonus', 0);
-            // Проверяем, достаточно ли у пользователя бонусов для оплаты услуг
-            if ($isBonusUsed == 1) {
-                // Проверяем, достаточно ли у пользователя бонусов для оплаты услуг
-                if (!$selectedServices->isEmpty()) {
-                    $serviceTotal = $selectedServices->sum('price');
-                    if ($currentBonuses < $serviceTotal) {
-                        // Если бонусов недостаточно, возвращаем ошибку
-                        throw new \Exception('Insufficient bonuses to pay for selected services');
-                    }
-
-                    // Вычитаем стоимость выбранных услуг из бонусов пользователя
-                    $user->update([
-                        'bonuses' => max(0, $user->bonuses - $serviceTotal),
-                    ]);
-                }
-            }
             $booking->save();
 
             if ($serviceIds) {
